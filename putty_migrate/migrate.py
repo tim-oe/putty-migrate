@@ -9,7 +9,9 @@ application entry point
 from pathlib import Path
 import re
 import shutil
+import traceback
 from pyutil import filereplace
+import subprocess
 
 from putty_migrate.SessionData import SessionData
 
@@ -33,6 +35,9 @@ if __name__ == "__main__":
             if match:
                 sd: SessionData = SessionData(name=match.group(1))
                 
+                baseDir: Path = Path("sessions")
+                baseDir.mkdir(parents=True, exist_ok=True)
+
                 while line := file.readline():
                     l: str = line.rstrip()
                     if l != "":
@@ -63,11 +68,21 @@ if __name__ == "__main__":
                 outFile: Path = Path(shutil.copy(tf, f"sessions/{match.group(1)}"))
 
                 print(f"outfile: {outFile}")        
+                try:
+                    result = subprocess.run(["ssh-keygen", "-D", sd.host], capture_output=True, text=True)
+                    print(result.stdout)
 
-                filereplace(outFile.resolve(), "__host__", sd.host)
-                filereplace(outFile.resolve(), "__user-name__", sd.user)
-                filereplace(outFile.resolve(), "__key-file__", f"/home/tcronin/.ssh/aws/{sd.key}")
+                    result = subprocess.run(["ssh-keyscan", "-T", "10", "-H", "-D", sd.host, ">>", "~/.ssh/known_hosts"], capture_output=True, text=True)
+                    print(result.stdout)
 
+                    filereplace(outFile.resolve(), "__host__", sd.host)
+                    filereplace(outFile.resolve(), "__user-name__", sd.user)
+                    filereplace(outFile.resolve(), "__key-file__", f"/home/tcronin/.ssh/aws/{sd.key}")
+                except Exception as e:
+                    print("An error occurred:")
+                    print(e)
+                    traceback.print_exc()                
+                    
                 keys.add(sd.key)
 
                 t: str = sd.title
