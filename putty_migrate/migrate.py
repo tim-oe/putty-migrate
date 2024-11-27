@@ -68,27 +68,26 @@ if __name__ == "__main__":
                 outFile: Path = Path(shutil.copy(tf, f"sessions/{match.group(1)}"))
 
                 print(f"outfile: {outFile}")        
-                try:
-                    result = subprocess.run(["ssh-keygen", "-D", sd.host], capture_output=True, text=True)
-                    print(result.stdout)
+                # try:
+                #     result = subprocess.run(["ssh-keygen", "-D", sd.host], capture_output=True, text=True)
+                #     print(result.stdout)
 
-                    result = subprocess.run(["ssh-keyscan", "-T", "10", "-H", "-D", sd.host, ">>", "~/.ssh/known_hosts"], capture_output=True, text=True)
-                    print(result.stdout)
-
-                    filereplace(outFile.resolve(), "__host__", sd.host)
-                    filereplace(outFile.resolve(), "__user-name__", sd.user)
-                    filereplace(outFile.resolve(), "__key-file__", f"/home/tcronin/.ssh/aws/{sd.key}")
-                except Exception as e:
-                    print("An error occurred:")
-                    print(e)
-                    traceback.print_exc()                
-                    
-                keys.add(sd.key)
+                #     result = subprocess.run(["ssh-keyscan", "-T", "10", "-H", "-D", sd.host, ">>", "~/.ssh/known_hosts"], capture_output=True, text=True)
+                #     print(result.stdout)
+                # except Exception as e:
+                #     print("An error occurred:")
+                #     print(e)
+                #     traceback.print_exc()                
 
                 t: str = sd.title
                 if t == "":
                     t = match.group(1)
                 filereplace(outFile.resolve(), "__window-title_", t)
+                filereplace(outFile.resolve(), "__host__", sd.host)
+                filereplace(outFile.resolve(), "__user-name__", sd.user)
+                filereplace(outFile.resolve(), "__key-file__", f"/home/tcronin/.ssh/aws/{sd.key}")
+
+                keys.add(sd.key)
 
     for element in keys:
         print(element)    
