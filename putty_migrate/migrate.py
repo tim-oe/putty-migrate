@@ -9,13 +9,9 @@ application entry point
 from pathlib import Path
 import re
 import shutil
-import traceback
 from pyutil import filereplace
-import subprocess
 
-from putty_migrate.SessionData import SessionData
-
-START_SESSION_RE = '\\[HKEY_CURRENT_USER\\\\Software\\\\SimonTatham\\\\PuTTY\\\\Sessions\\\\(.*)\\]'
+START_SESSION_RE = '\\[HKEY_CURRENT_USER\\\\Software\\\\[\\w]+\\\\PuTTY\\\\Sessions\\\\(.*)\\]'
 KV_RE = '"([^"]*)"="?([^"]*)"?'
 DWORD_RE = 'dword:(\\d+)'
 KEY_RE = '.*\\\\((.*)\\.ppk)'
@@ -33,10 +29,12 @@ if __name__ == "__main__":
             l: str = line.rstrip()
             match = re.search(START_SESSION_RE, l)
             if match:
-                sd: SessionData = SessionData(name=match.group(1))
                 
                 baseDir: Path = Path("sessions")
                 baseDir.mkdir(parents=True, exist_ok=True)
+                tf: Path = Path(SESSION_TEMPLATE_FILE)
+                outFile: Path = Path(shutil.copy(tf, f"sessions/{match.group(1)}"))
+                print(f"outfile: {outFile}")        
 
                 while line := file.readline():
                     l: str = line.rstrip()
@@ -45,29 +43,26 @@ if __name__ == "__main__":
                         v = kv.group(2)
                         d = re.search(DWORD_RE, v)
                         if d:
-                            v = int()
+                            v = int(d.group(1))
 
                         match kv.group(1):
                             case "HostName":
-                                sd.host = v
+                                filereplace(outFile.resolve(), "__host__", v)
                             case "UserName":
-                                sd.user = v
+                                filereplace(outFile.resolve(), "__user-name__", v)
                             case "PublicKeyFile":
                                 key = re.search(KEY_RE, v)
                                 if key:
-                                    v = key.group(1)
-                                sd.key = v
+                                    filereplace(outFile.resolve(), "__key-file__", f"/home/tcronin/.ssh/aws/{key.group(1)}")
+                                    keys.add(key.group(1))
                             case "WinTitle":
-                                sd.title = v
+                                t: str = v
+                                if t == "":
+                                    t = match.group(1)
+                                filereplace(outFile.resolve(), "__window-title_", t)
                     else:    
                         break
 
-                tf: Path = Path(SESSION_TEMPLATE_FILE)
-                #print(f"tempalte file : {tf.resolve()}")        
-
-                outFile: Path = Path(shutil.copy(tf, f"sessions/{match.group(1)}"))
-
-                print(f"outfile: {outFile}")        
                 # try:
                 #     result = subprocess.run(["ssh-keygen", "-D", sd.host], capture_output=True, text=True)
                 #     print(result.stdout)
@@ -78,16 +73,6 @@ if __name__ == "__main__":
                 #     print("An error occurred:")
                 #     print(e)
                 #     traceback.print_exc()                
-
-                t: str = sd.title
-                if t == "":
-                    t = match.group(1)
-                filereplace(outFile.resolve(), "__window-title_", t)
-                filereplace(outFile.resolve(), "__host__", sd.host)
-                filereplace(outFile.resolve(), "__user-name__", sd.user)
-                filereplace(outFile.resolve(), "__key-file__", f"/home/tcronin/.ssh/aws/{sd.key}")
-
-                keys.add(sd.key)
 
     for element in keys:
         print(element)    
